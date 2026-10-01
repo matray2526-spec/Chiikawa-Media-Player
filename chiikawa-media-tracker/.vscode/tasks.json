@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Setup Chiikawa environment",
+      "type": "shell",
+      "command": "${workspaceFolder}\\setup.bat",
+      "problemMatcher": []
+    }
+  ]
+}

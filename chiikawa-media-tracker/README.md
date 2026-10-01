@@ -20,6 +20,12 @@ Optional motion GIFs in `assets/characters` are auto-selected by filename: `<Cha
 
 Python 3.10 or newer is required. Tkinter must be included with the Python installation.
 
+For the easiest launch, double-click `run.bat`. On first run it creates a project-local environment and installs dependencies; later launches start the app directly. No manual environment activation is needed.
+
+In VS Code, open **Run and Debug**, choose **Run Chiikawa Desktop Club**, and press the play button. The pre-launch task prepares the environment automatically. After that setup, the Python file's Run button also uses the project environment.
+
+To prepare the environment manually without activating it:
+
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
