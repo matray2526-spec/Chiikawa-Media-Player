@@ -1,0 +1,10 @@
+numpy>=2.0
+Pillow>=11.0
+psutil>=7.0
+pystray>=0.19.5
+pycaw>=20240210
+comtypes>=1.4.17
+soundcard>=0.4.3
+sounddevice>=0.5.0
+soundfile>=0.13.0
+ttkbootstrap>=1.10
