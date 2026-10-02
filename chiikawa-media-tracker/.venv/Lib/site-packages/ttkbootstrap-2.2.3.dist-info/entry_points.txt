@@ -1,0 +1,6 @@
+[console_scripts]
+ttkb = ttkbootstrap.cli:main
+ttkbootstrap = ttkbootstrap.cli:main
+
+[pyinstaller40]
+hook-dirs = ttkbootstrap._pyinstaller:get_hook_dirs
