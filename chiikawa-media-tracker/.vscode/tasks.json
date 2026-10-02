@@ -5,6 +5,10 @@
       "label": "Setup Chiikawa environment",
       "type": "shell",
       "command": "${workspaceFolder}\\setup.bat",
+      "osx": {
+        "command": "bash",
+        "args": ["${workspaceFolder}/setup-macos.sh"]
+      },
       "problemMatcher": []
     }
   ]

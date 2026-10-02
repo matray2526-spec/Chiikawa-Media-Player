@@ -21,7 +21,7 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 set "REQUIREMENTS_HASH="
-for /f "usebackq delims=" %%H in (`powershell -NoProfile -Command "(Get-FileHash -LiteralPath requirements.txt -Algorithm SHA256).Hash"`) do set "REQUIREMENTS_HASH=%%H"
+for /f "usebackq delims=" %%H in (`powershell -NoProfile -Command "(Get-FileHash -LiteralPath requirements.txt -Algorithm SHA256).Hash + (Get-FileHash -LiteralPath requirements-windows.txt -Algorithm SHA256).Hash"`) do set "REQUIREMENTS_HASH=%%H"
 if not defined REQUIREMENTS_HASH (
     echo Could not check the dependency list.
     exit /b 1
@@ -31,7 +31,7 @@ set "INSTALLED_HASH="
 if exist ".venv\requirements.sha256" set /p INSTALLED_HASH=<".venv\requirements.sha256"
 if /I not "%INSTALLED_HASH%"=="%REQUIREMENTS_HASH%" (
     echo Installing or updating app dependencies...
-    ".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -r requirements.txt
+    ".venv\Scripts\python.exe" -m pip install --disable-pip-version-check -r requirements-windows.txt
     if errorlevel 1 exit /b 1
     >".venv\requirements.sha256" echo %REQUIREMENTS_HASH%
 )

@@ -11,14 +11,17 @@ import time
 from collections import deque
 from collections.abc import Callable
 import ctypes
-from ctypes import wintypes
 from pathlib import Path
 from tkinter import colorchooser, filedialog, messagebox
 import tkinter as tk
 from typing import Any
 
-# The Windows audio backends share COM on the UI thread.
-setattr(sys, "coinit_flags", 0)
+IS_WINDOWS = sys.platform == "win32"
+IS_MACOS = sys.platform == "darwin"
+
+if IS_WINDOWS:
+    # The Windows audio backends share COM on the UI thread.
+    setattr(sys, "coinit_flags", 0)
 
 import numpy as np
 import pystray
@@ -28,8 +31,13 @@ import sounddevice as sd
 import soundfile as sf
 import ttkbootstrap as tb
 from PIL import Image, ImageChops, ImageColor, ImageDraw, ImageFilter, ImageOps, ImageSequence, ImageTk
-from pycaw.pycaw import AudioUtilities
-from process_loopback import capture_process_audio
+
+if IS_WINDOWS:
+    from pycaw.pycaw import AudioUtilities
+    from process_loopback import capture_process_audio
+else:
+    AudioUtilities = None
+    capture_process_audio = None
 
 
 APP_NAME = "Chiikawa Desktop Club"
@@ -68,7 +76,10 @@ CUSTOM_ANIMATION_STATES = tuple(state for _section, states in CUSTOM_ANIMATION_S
 
 
 def settings_path() -> Path:
-    root = Path(os.environ.get("APPDATA", Path.home())) / "Chiikawa Desktop Club"
+    if IS_MACOS:
+        root = Path.home() / "Library" / "Application Support" / "Chiikawa Desktop Club"
+    else:
+        root = Path(os.environ.get("APPDATA", Path.home())) / "Chiikawa Desktop Club"
     root.mkdir(parents=True, exist_ok=True)
     return root / "settings.json"
 
@@ -284,6 +295,8 @@ class AudioController:
         self.active = True
 
     def start_system_audio(self, speaker_name: str) -> None:
+        if not IS_WINDOWS:
+            raise RuntimeError("Desktop loopback capture is not available on macOS. Choose a virtual audio input such as BlackHole from the Input source.")
         self.stop()
         token = self.token
         self.loop_stop.clear()
@@ -303,6 +316,8 @@ class AudioController:
         self.loop_thread.start()
 
     def start_process_audio(self, process_id: int) -> None:
+        if not IS_WINDOWS or capture_process_audio is None:
+            raise RuntimeError("Per-app audio capture is currently available on Windows only.")
         self.stop()
         token = self.token
         self.loop_stop.clear()
@@ -376,16 +391,25 @@ class PetWindow:
         self.window = tk.Toplevel(root)
         self.window.overrideredirect(True)
         self.window.attributes("-topmost", True)
-        self.window.configure(background=TRANSPARENT)
-        self.window.configure(cursor="fleur")
         try:
-            self.window.attributes("-transparentcolor", TRANSPARENT)
+            self.window.configure(cursor="openhand" if IS_MACOS else "fleur")
         except tk.TclError:
             pass
+        if IS_MACOS:
+            self.window.configure(background="systemTransparent")
+            self.window.attributes("-transparent", True)
+            canvas_background = "systemTransparent"
+        else:
+            self.window.configure(background=TRANSPARENT)
+            try:
+                self.window.attributes("-transparentcolor", TRANSPARENT)
+            except tk.TclError:
+                pass
+            canvas_background = TRANSPARENT
         screen_width = root.winfo_screenwidth()
         screen_height = root.winfo_screenheight()
         self.window.geometry(f"180x190+{max(0, screen_width - 240)}+{max(0, screen_height - 230)}")
-        self.canvas = tk.Canvas(self.window, width=180, height=190, bg=TRANSPARENT, highlightthickness=0)
+        self.canvas = tk.Canvas(self.window, width=180, height=190, bg=canvas_background, highlightthickness=0)
         self.canvas.pack(fill="both", expand=True)
         self.image_item = self.canvas.create_image(90, 105, anchor="center")
         self.placeholder_background = self.canvas.create_oval(48, 57, 132, 141, fill="#fff8e8", outline="#ffffff", width=3)
@@ -404,6 +428,8 @@ class PetWindow:
         self.window.attributes("-topmost", True)
         self.window.update_idletasks()
         if os.name == "nt":
+            from ctypes import wintypes
+
             user32 = ctypes.windll.user32
             get_ancestor = user32.GetAncestor
             get_ancestor.argtypes = (wintypes.HWND, wintypes.UINT)
@@ -651,7 +677,13 @@ class DesktopCompanion:
         tb.Label(parent, text="One source at a time. No audio pile-up.", style="Muted.TLabel").grid(row=1, column=0, sticky="w", pady=(3, 10))
         self.source_tabs = tb.Frame(parent)
         self.source_tabs.grid(row=2, column=0, sticky="ew")
-        for value, label in (("file", "Audio file"), ("system", "Desktop audio"), ("mic", "Mic")):
+        source_choices = [("file", "Audio file")]
+        if IS_WINDOWS:
+            source_choices.insert(1, ("system", "Desktop audio"))
+            source_choices.append(("mic", "Mic"))
+        else:
+            source_choices.append(("mic", "Input"))
+        for value, label in source_choices:
             tb.Radiobutton(self.source_tabs, text=label, variable=self.source_var, value=value, bootstyle="success-toolbutton", command=self.change_source).pack(side="left", expand=True, fill="x")
 
         self.source_panel = tb.Frame(parent, padding=(0, 10, 0, 4))
@@ -677,7 +709,12 @@ class DesktopCompanion:
         tb.Separator(parent).grid(row=5, column=0, sticky="ew", pady=(3, 12))
         self.demo_button = tb.Button(parent, text="Try a demo beat", bootstyle="warning-outline", command=self.toggle_demo)
         self.demo_button.grid(row=6, column=0, sticky="w")
-        tb.Label(parent, text="Choose one app, microphone, or output mix to track.", style="Muted.TLabel", wraplength=330).grid(row=7, column=0, sticky="w", pady=(11, 0))
+        source_hint = (
+            "Choose one app, microphone, or output mix to track."
+            if IS_WINDOWS
+            else "Choose a microphone or virtual input such as BlackHole."
+        )
+        tb.Label(parent, text=source_hint, style="Muted.TLabel", wraplength=330).grid(row=7, column=0, sticky="w", pady=(11, 0))
         self.device_picker.bind("<<ComboboxSelected>>", self.change_source)
         self.change_source()
 
@@ -883,6 +920,8 @@ class DesktopCompanion:
             self.input_devices = {}
 
         try:
+            if not IS_WINDOWS:
+                raise RuntimeError("Speaker loopback is Windows-only in this app.")
             speakers = [speaker.name for speaker in sc.all_speakers()]
             default_speaker = sc.default_speaker().name
             self.speakers = list(dict.fromkeys(speakers))
@@ -893,10 +932,11 @@ class DesktopCompanion:
 
         self.app_targets: dict[str, tuple[str, int | str]] = self._discover_app_targets()
         self.system_targets: dict[str, str] = {}
-        for speaker in self.speakers:
-            label = f"All desktop audio · {speaker}"
-            self.system_targets[label] = speaker
-            self.app_targets[label] = ("system", speaker)
+        if IS_WINDOWS:
+            for speaker in self.speakers:
+                label = f"All desktop audio · {speaker}"
+                self.system_targets[label] = speaker
+                self.app_targets[label] = ("system", speaker)
         self.default_system_target = next(
             (label for label, speaker in self.system_targets.items() if speaker == self.default_speaker),
             next(iter(self.system_targets), ""),
@@ -904,6 +944,8 @@ class DesktopCompanion:
         self.audio_devices_loaded = True
 
     def _discover_app_targets(self) -> dict[str, tuple[str, int | str]]:
+        if not IS_WINDOWS or AudioUtilities is None:
+            return {}
         processes: dict[int, tuple[str, str]] = {}
         try:
             sessions = AudioUtilities.GetAllSessions()
@@ -962,12 +1004,15 @@ class DesktopCompanion:
         elif source == "mic":
             self.device_panel.pack(fill="x")
             input_labels = list(self.input_devices)
-            self.device_title.configure(text="MICROPHONE INPUT")
+            self.device_title.configure(text="AUDIO INPUT" if IS_MACOS else "MICROPHONE INPUT")
             self.refresh_devices_button.configure(text="Refresh inputs")
             self.device_picker.configure(values=input_labels)
             if self.device_var.get() not in self.input_devices:
                 self.device_var.set(next(iter(self.input_devices), ""))
-            self.source_description.configure(text="Only this microphone is captured; desktop playback is not mixed in.")
+            if IS_MACOS:
+                self.source_description.configure(text="Choose a microphone or virtual audio input such as BlackHole for desktop audio.")
+            else:
+                self.source_description.configure(text="Only this microphone is captured; desktop playback is not mixed in.")
         else:
             self.device_panel.pack(fill="x")
             self.device_title.configure(text="APP OR OUTPUT")

@@ -8,7 +8,11 @@
       "program": "${workspaceFolder}/main.py",
       "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
       "console": "integratedTerminal",
-      "preLaunchTask": "Setup Chiikawa environment"
+      "preLaunchTask": "Setup Chiikawa environment",
+      "osx": {
+        "python": "${workspaceFolder}/.venv/bin/python",
+        "preLaunchTask": "Setup Chiikawa environment"
+      }
     }
   ]
 }

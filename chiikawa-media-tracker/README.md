@@ -26,11 +26,21 @@ For the easiest launch, double-click `run.bat`. On first run it creates a projec
 
 In VS Code, open **Run and Debug**, choose **Run Chiikawa Desktop Club**, and press the play button. The pre-launch task prepares the environment automatically. After that setup, the Python file's Run button also uses the project environment.
 
+## Build a Downloadable App
+
+On Windows, double-click `build.bat`. It installs PyInstaller into the project environment if needed and creates `dist\ChiikawaDesktopClub\ChiikawaDesktopClub.exe`. Distribute the entire `dist\ChiikawaDesktopClub` folder, or zip that folder for a GitHub release; the EXE needs its neighboring files and bundled character assets.
+
+### macOS
+
+On a Mac with Python 3.10+ and Tk support, run `bash ./run-macos.sh` from Terminal. This creates `.venv` and installs the cross-platform dependencies without Windows-only packages. In VS Code, use **Run and Debug → Run Chiikawa Desktop Club**; the macOS setup task is selected automatically.
+
+To build a Mac app bundle, run `bash ./build-macos.sh` on the Mac. It creates `dist/ChiikawaDesktopClub.app`; double-click it to run, or zip the `.app` bundle for distribution. Build on macOS because PyInstaller cannot cross-build Mac apps from Windows. macOS supports audio files and input devices. For system output, install a virtual input such as BlackHole and select it under **Input**. Per-app audio capture is currently Windows-only.
+
 To prepare the environment manually without activating it:
 
 ```powershell
 py -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+\.venv\Scripts\python.exe -m pip install -r requirements-windows.txt
 .\.venv\Scripts\python.exe main.py
 ```
 
