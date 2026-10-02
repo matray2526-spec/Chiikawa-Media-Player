@@ -130,6 +130,8 @@
     let analyser;
     let stream;
     let frame;
+    let roamTimer;
+    let roaming = false;
     function artwork() {
       const name = character.value;
       pet.src = artworkUrl(`${name}-${mood}.gif`);
@@ -140,6 +142,21 @@
     function movePet() {
       petWrap.style.left = `${document.querySelector("#movement").value === "stage" ? 18 + Math.random() * 64 : 30 + Math.random() * 40}%`;
       petWrap.style.bottom = `${document.querySelector("#movement").value === "stage" ? 100 + Math.random() * 260 : 106 + Math.random() * 35}px`;
+    }
+    function scheduleRoaming() {
+      if (!roaming) return;
+      movePet();
+      roamTimer = window.setTimeout(scheduleRoaming, 1800 + Math.random() * 1800);
+    }
+    function startRoaming() {
+      if (roaming) return;
+      roaming = true;
+      scheduleRoaming();
+    }
+    function stopRoaming() {
+      roaming = false;
+      if (roamTimer) window.clearTimeout(roamTimer);
+      roamTimer = undefined;
     }
     function animateAudio() {
       if (!analyser) return;
@@ -167,12 +184,12 @@
     }));
     character.addEventListener("change", artwork);
     document.querySelectorAll("[data-mood]").forEach((button) => button.addEventListener("click", () => { mood = button.dataset.mood; document.querySelectorAll("[data-mood]").forEach((item) => item.classList.toggle("active", item === button)); artwork(); }));
-    document.querySelector("#movement").addEventListener("change", movePet);
+    document.querySelector("#movement").addEventListener("change", () => { if (roaming) movePet(); });
     document.querySelector("#volume").addEventListener("input", (event) => { audio.volume = event.target.value / 100; document.querySelector("#volumeValue").textContent = `${event.target.value}%`; });
-    document.querySelector("#audioFile").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; audio.src = URL.createObjectURL(file); await connectAudio(); audio.play(); status.textContent = file.name; movePet(); });
-    document.querySelector("#micButton").addEventListener("click", async () => { try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); audioContext ||= new AudioContext(); if (source) source.disconnect(); source = audioContext.createMediaStreamSource(stream); analyser = audioContext.createAnalyser(); analyser.fftSize = 128; source.connect(analyser); status.textContent = "Listening to microphone"; animateAudio(); } catch { status.textContent = "Microphone permission was not granted"; } });
-    document.querySelector("#playButton").addEventListener("click", async () => { if (!audio.src) { status.textContent = "Choose an audio file first"; return; } await audio.play(); status.textContent = "Playing locally"; movePet(); });
-    document.querySelector("#stopButton").addEventListener("click", () => { audio.pause(); if (stream) stream.getTracks().forEach((track) => track.stop()); if (frame) cancelAnimationFrame(frame); pet.classList.remove("dancing"); bars.forEach((bar) => { bar.style.height = "5px"; }); status.textContent = "Ready to play"; });
+    document.querySelector("#audioFile").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; audio.src = URL.createObjectURL(file); await connectAudio(); audio.play(); status.textContent = file.name; startRoaming(); });
+    document.querySelector("#micButton").addEventListener("click", async () => { try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); audioContext ||= new AudioContext(); if (source) source.disconnect(); source = audioContext.createMediaStreamSource(stream); analyser = audioContext.createAnalyser(); analyser.fftSize = 128; source.connect(analyser); status.textContent = "Listening to microphone"; startRoaming(); animateAudio(); } catch { status.textContent = "Microphone permission was not granted"; } });
+    document.querySelector("#playButton").addEventListener("click", async () => { if (!audio.src) { startRoaming(); status.textContent = "Companion roaming"; return; } await audio.play(); status.textContent = "Playing locally"; startRoaming(); });
+    document.querySelector("#stopButton").addEventListener("click", () => { audio.pause(); if (stream) stream.getTracks().forEach((track) => track.stop()); if (frame) cancelAnimationFrame(frame); stopRoaming(); pet.classList.remove("dancing"); bars.forEach((bar) => { bar.style.height = "5px"; }); status.textContent = "Ready to play"; });
     artwork();
     audio.volume = .7;
   </script>
