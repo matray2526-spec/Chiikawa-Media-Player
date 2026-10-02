@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Chiikawa Desktop Club browser companion and app downloads.">
+  <title>Chiikawa Desktop Club</title>
+  <style>
+    :root {
+      --ink: #202a28;
+      --muted: #74827b;
+      --green: #187e69;
+      --green-dark: #0e5c4d;
+      --mint: #e8f4ed;
+      --cream: #fffaf0;
+      --line: #d7e4dc;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; color: var(--ink); background: radial-gradient(circle at 85% 0%, #dcefe4, transparent 35rem), linear-gradient(140deg, var(--cream), #f1f8f2); }
+    .shell { width: min(1120px, calc(100% - 36px)); margin: 0 auto; }
+    header { display: flex; align-items: center; justify-content: space-between; padding: 24px 0; }
+    .brand { display: flex; align-items: center; gap: 11px; font-weight: 850; letter-spacing: -.03em; }
+    .logo { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 13px; color: #fff; background: var(--green); font-size: 21px; }
+    .nav { display: flex; gap: 8px; }
+    button, select, input { font: inherit; }
+    button { min-height: 44px; padding: 0 15px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: #fff; font-weight: 750; cursor: pointer; }
+    button:hover, button.active { border-color: var(--green); }
+    button.active, .primary { color: #fff; background: var(--green); }
+    button.primary:hover, button.active:hover { background: var(--green-dark); }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 15px; border-radius: 12px; text-decoration: none; }
+    .view { display: none; padding: 42px 0 60px; }
+    .view.active { display: block; }
+    .hero { max-width: 720px; margin-bottom: 36px; }
+    h1 { margin: 0 0 15px; font-size: clamp(2.8rem, 8vw, 5.5rem); line-height: .95; letter-spacing: -.07em; }
+    h2 { margin: 0 0 12px; }
+    .hero p, .note { color: var(--muted); line-height: 1.6; }
+    .browser-layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(300px, .8fr); gap: 22px; }
+    .stage, .panel, .download-card { border: 1px solid var(--line); border-radius: 25px; background: rgb(255 255 255 / 80%); box-shadow: 0 20px 55px rgb(32 42 40 / 8%); }
+    .stage { position: relative; min-height: 560px; overflow: hidden; background: linear-gradient(#dff2e8, #f9fbf5 68%); }
+    .stage-top { display: flex; justify-content: space-between; padding: 24px 27px; }
+    .stage-top h2 { font-size: 1.2rem; }
+    .status { color: var(--green-dark); font-size: .8rem; font-weight: 750; }
+    .pet-wrap { position: absolute; left: 50%; bottom: 110px; width: 210px; transform: translateX(-50%); text-align: center; transition: left 900ms ease, bottom 900ms ease; }
+    .pet { width: 190px; max-height: 240px; object-fit: contain; filter: drop-shadow(0 17px 10px rgb(32 42 40 / 14%)); animation: breathe 2.8s ease-in-out infinite; }
+    .pet.dancing { animation: dance .5s ease-in-out infinite alternate; }
+    .pet-name { margin-top: 8px; color: var(--green-dark); font-size: .87rem; font-weight: 800; }
+    .ground { position: absolute; left: 8%; right: 8%; bottom: 91px; height: 18px; border-radius: 50%; background: rgb(96 151 118 / 16%); }
+    .visualizer { position: absolute; left: 7%; right: 7%; bottom: 30px; display: flex; align-items: end; justify-content: center; gap: 5px; height: 43px; }
+    .bar { width: 7px; min-height: 5px; border-radius: 8px; background: #67b995; }
+    .panel { padding: 25px; }
+    .field { margin-bottom: 19px; }
+    label { display: block; margin-bottom: 8px; color: var(--muted); font-size: .78rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    select, input[type="range"] { width: 100%; }
+    select { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: #fff; }
+    .moods, .actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .upload { display: flex; align-items: center; justify-content: center; }
+    .upload input { display: none; }
+    .note { margin: 18px 0 0; padding: 12px; border-radius: 12px; background: var(--mint); font-size: .78rem; }
+    .downloads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .download-card { min-height: 230px; padding: 23px; }
+    .download-card p { min-height: 72px; color: var(--muted); line-height: 1.55; }
+    .disabled { color: #7b8982; background: #e1e9e3; cursor: not-allowed; pointer-events: none; }
+    footer { padding: 0 0 30px; color: var(--muted); font-size: .85rem; }
+    @keyframes breathe { from { transform: translateY(0) rotate(-1deg); } to { transform: translateY(-8px) rotate(1deg); } }
+    @keyframes dance { from { transform: translateY(0) rotate(-5deg); } to { transform: translateY(-13px) rotate(5deg); } }
+    @media (max-width: 800px) { .browser-layout, .downloads { grid-template-columns: 1fr; } .stage { min-height: 500px; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="brand"><span class="logo" aria-hidden="true">✿</span> Chiikawa Desktop Club</div>
+      <nav class="nav" aria-label="Main navigation">
+        <button class="active" data-view="companion">Browser app</button>
+        <button data-view="downloads">Downloads</button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="view active" id="companion">
+        <div class="hero">
+          <h1>Meet your browser companion.</h1>
+          <p>Choose a character, set a mood, and let your companion react to local audio or your microphone.</p>
+        </div>
+        <div class="browser-layout">
+          <section class="stage" aria-label="Browser companion">
+            <div class="stage-top"><h2>Browser companion</h2><span class="status" id="status">Ready to play</span></div>
+            <div class="pet-wrap" id="petWrap"><img class="pet" id="pet" src="assets/characters/Chiikawa.webp" alt="Chiikawa"><div class="pet-name" id="petName">Chiikawa · Dreamy</div></div>
+            <div class="ground"></div><div class="visualizer" id="visualizer" aria-hidden="true"></div>
+          </section>
+          <aside class="panel">
+            <h2>Companion settings</h2>
+            <div class="field"><label for="character">Character</label><select id="character"><option>Chiikawa</option><option>Hachiware</option><option>Usagi</option><option>Shisa</option><option>Rakko</option><option>Momonga</option><option>KuriManju</option><option>Furuhonya</option></select></div>
+            <div class="field"><label>Mood</label><div class="moods" id="moods"><button class="active" data-mood="dreamy">Dreamy</button><button data-mood="chill">Chill</button><button data-mood="upbeat">Upbeat</button><button data-mood="energetic">Energetic</button></div></div>
+            <div class="field"><label for="movement">Roaming</label><select id="movement"><option value="stroll">Bottom stroll</option><option value="stage">Whole stage</option></select></div>
+            <div class="field"><label for="volume">Volume <output id="volumeValue">70%</output></label><input id="volume" type="range" min="0" max="100" value="70"></div>
+            <div class="field"><label>Audio source</label><div class="actions"><label class="upload">Choose audio<input id="audioFile" type="file" accept="audio/*"></label><button class="primary" id="micButton">Use microphone</button></div></div>
+            <div class="actions"><button id="playButton">Start companion</button><button id="stopButton">Stop</button></div>
+            <p class="note">Audio is processed locally. Microphone access requires permission and HTTPS or localhost.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="downloads">
+        <div class="hero"><h1>Choose your download.</h1><p>Get the native companion app for your computer, or return to the browser app without installing anything.</p></div>
+        <div class="downloads">
+          <article class="download-card"><h2>Windows</h2><p>Native desktop app for Windows 10 or newer.</p><a class="button primary" href="https://github.com/matray2526-spec/Chiikawa-Media-Player/releases/latest">Download</a></article>
+          <article class="download-card"><h2>macOS</h2><p>Native app bundle for Mac computers.</p><a class="button primary" href="https://github.com/matray2526-spec/Chiikawa-Media-Player/releases/latest">Download</a></article>
+          <article class="download-card"><h2>Linux</h2><p>A native Linux package is not available yet.</p><button class="disabled">Coming soon</button></article>
+        </div>
+      </section>
+    </main>
+    <footer>Chiikawa Desktop Club · Browser mode processes audio locally.</footer>
+  </div>
+  <audio id="audio"></audio>
+  <script>
+    const character = document.querySelector("#character");
+    const pet = document.querySelector("#pet");
+    const petWrap = document.querySelector("#petWrap");
+    const petName = document.querySelector("#petName");
+    const status = document.querySelector("#status");
+    const audio = document.querySelector("#audio");
+    const bars = Array.from({ length: 28 }, () => { const bar = document.createElement("span"); bar.className = "bar"; document.querySelector("#visualizer").append(bar); return bar; });
+    let mood = "dreamy";
+    let audioContext;
+    let source;
+    let analyser;
+    let stream;
+    let frame;
+    function artwork() {
+      const name = character.value;
+      pet.src = `assets/characters/${name}-${mood}.gif`;
+      pet.onerror = () => { pet.onerror = null; pet.src = `assets/characters/${name}.webp`; };
+      pet.alt = name;
+      petName.textContent = `${name} · ${mood[0].toUpperCase()}${mood.slice(1)}`;
+    }
+    function movePet() {
+      petWrap.style.left = `${document.querySelector("#movement").value === "stage" ? 18 + Math.random() * 64 : 30 + Math.random() * 40}%`;
+      petWrap.style.bottom = `${document.querySelector("#movement").value === "stage" ? 100 + Math.random() * 260 : 106 + Math.random() * 35}px`;
+    }
+    function animateAudio() {
+      if (!analyser) return;
+      const values = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(values);
+      const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+      bars.forEach((bar, index) => { bar.style.height = `${Math.max(5, (values[Math.floor(index * values.length / bars.length)] || 0) / 2.2)}px`; });
+      pet.classList.toggle("dancing", average > 38);
+      frame = requestAnimationFrame(animateAudio);
+    }
+    async function connectAudio() {
+      audioContext ||= new AudioContext();
+      if (!source) source = audioContext.createMediaElementSource(audio);
+      if (analyser) analyser.disconnect();
+      source.disconnect();
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 128;
+      source.connect(analyser);
+      analyser.connect(audioContext.destination);
+      animateAudio();
+    }
+    document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => {
+      document.querySelectorAll(".view").forEach((view) => view.classList.toggle("active", view.id === button.dataset.view));
+      document.querySelectorAll("[data-view]").forEach((item) => item.classList.toggle("active", item === button));
+    }));
+    character.addEventListener("change", artwork);
+    document.querySelectorAll("[data-mood]").forEach((button) => button.addEventListener("click", () => { mood = button.dataset.mood; document.querySelectorAll("[data-mood]").forEach((item) => item.classList.toggle("active", item === button)); artwork(); }));
+    document.querySelector("#movement").addEventListener("change", movePet);
+    document.querySelector("#volume").addEventListener("input", (event) => { audio.volume = event.target.value / 100; document.querySelector("#volumeValue").textContent = `${event.target.value}%`; });
+    document.querySelector("#audioFile").addEventListener("change", async (event) => { const file = event.target.files[0]; if (!file) return; audio.src = URL.createObjectURL(file); await connectAudio(); audio.play(); status.textContent = file.name; movePet(); });
+    document.querySelector("#micButton").addEventListener("click", async () => { try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); audioContext ||= new AudioContext(); if (source) source.disconnect(); source = audioContext.createMediaStreamSource(stream); analyser = audioContext.createAnalyser(); analyser.fftSize = 128; source.connect(analyser); status.textContent = "Listening to microphone"; animateAudio(); } catch { status.textContent = "Microphone permission was not granted"; } });
+    document.querySelector("#playButton").addEventListener("click", async () => { if (!audio.src) { status.textContent = "Choose an audio file first"; return; } await audio.play(); status.textContent = "Playing locally"; movePet(); });
+    document.querySelector("#stopButton").addEventListener("click", () => { audio.pause(); if (stream) stream.getTracks().forEach((track) => track.stop()); if (frame) cancelAnimationFrame(frame); pet.classList.remove("dancing"); bars.forEach((bar) => { bar.style.height = "5px"; }); status.textContent = "Ready to play"; });
+    artwork();
+    audio.volume = .7;
+  </script>
+</body>
+</html>
