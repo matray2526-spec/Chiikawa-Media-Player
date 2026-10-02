@@ -42,7 +42,23 @@
     }
     h1 { margin: 0; font-size: clamp(2.5rem, 8vw, 5.5rem); line-height: .95; letter-spacing: -.07em; }
     p { max-width: 560px; margin: 22px auto 32px; color: #68766f; font-size: 1.1rem; line-height: 1.65; }
-    .actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; }
+    .actions { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 12px; }
+    button {
+      min-height: 48px;
+      padding: 0 16px;
+      border: 1px solid #d7e4dc;
+      border-radius: 13px;
+      font: inherit;
+      font-weight: 700;
+      border-color: #187e69;
+      color: #fff;
+      background: #187e69;
+      cursor: pointer;
+      font-weight: 800;
+    }
+    button:hover { background: #0e5c4d; }
+    button.secondary { border-color: #d7e4dc; color: #0e5c4d; background: #e1f2e7; }
+    button.secondary:hover { background: #cde8d7; }
     a {
       display: inline-flex;
       align-items: center;
@@ -55,9 +71,6 @@
       font-weight: 800;
       text-decoration: none;
     }
-    a:hover { background: #0e5c4d; }
-    a.secondary { color: #0e5c4d; background: #e1f2e7; }
-    a.secondary:hover { background: #cde8d7; }
     footer { margin-top: 34px; color: #849089; font-size: .85rem; }
   </style>
 </head>
@@ -67,10 +80,17 @@
     <h1>Chiikawa Desktop Club</h1>
     <p>A tiny desktop companion that reacts to your music, audio, and mood. Open it in your browser or download the native app for your computer.</p>
     <div class="actions">
-      <a href="browser-app.html">Open browser app</a>
-      <a class="secondary" href="downloads.html">Download the app</a>
+      <button type="button" data-destination="browser-app.html">Open browser app</button>
+      <button class="secondary" type="button" data-destination="downloads.html">Download the app</button>
     </div>
-    <footer>Choose a character, set a mood, and let your companion join the fun.</footer>
+    <footer>Choose an option to continue.</footer>
   </main>
+  <script>
+    document.querySelectorAll("[data-destination]").forEach((button) => {
+      button.addEventListener("click", () => {
+        window.location.href = button.dataset.destination;
+      });
+    });
+  </script>
 </body>
 </html>
