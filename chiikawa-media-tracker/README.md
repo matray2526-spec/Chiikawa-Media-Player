@@ -16,6 +16,8 @@ Choose **Bottom stroll** to keep the character in the lower part of the screen, 
 
 Optional motion GIFs in `assets/characters` are auto-selected by filename: `<Character>-walking.gif`, `<Character>-idle.gif`, `<Character>-<mood>.gif`, and `<Character>-<mood>-idle.gif` (mood names: `dreamy`, `chill`, `upbeat`, `energetic`). Missing animations fall back to the character's selected or bundled standing artwork.
 
+To build a custom character, select **Custom** in Settings, then open **Custom animations…**. Assign separate image or GIF files for standing, walking, idle, each mood, and each mood's idle state. Missing states fall back to another assigned state or the standing image.
+
 ## Run on Windows
 
 Python 3.10 or newer is required. Tkinter must be included with the Python installation.

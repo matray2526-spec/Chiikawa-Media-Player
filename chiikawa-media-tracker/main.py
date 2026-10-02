@@ -57,6 +57,14 @@ MOOD_TEXT = {
     "upbeat": "Upbeat",
     "energetic": "Energetic",
 }
+CUSTOM_ANIMATION_SECTIONS = (
+    ("Movement", (("standing", "Standing fallback"), ("walking", "Walking"), ("idle", "Idle"))),
+    ("Dreamy", (("dreamy", "Walking / active"), ("dreamy-idle", "Resting"))),
+    ("Chill", (("chill", "Walking / active"), ("chill-idle", "Resting"))),
+    ("Upbeat", (("upbeat", "Walking / active"), ("upbeat-idle", "Resting"))),
+    ("Energetic", (("energetic", "Walking / active"), ("energetic-idle", "Resting"))),
+)
+CUSTOM_ANIMATION_STATES = tuple(state for _section, states in CUSTOM_ANIMATION_SECTIONS for state in states)
 
 
 def settings_path() -> Path:
@@ -99,12 +107,13 @@ class BeatAnalyzer:
         self.previous_spectrum: np.ndarray | None = None
         self.last_beat = -10.0
         self.last_spectral_onset = -1.0
+        self.last_signal_time: float | None = None
         self.beats: deque[float] = deque(maxlen=9)
         self.flux_history: deque[float] = deque(maxlen=48)
         self.spectral_flux_history: deque[float] = deque(maxlen=48)
         self.onset_times: deque[float] = deque()
         self.brightness_history: deque[tuple[float, float]] = deque()
-        self.energy_history: deque[tuple[float, float]] = deque()
+        self.energy_history: deque[tuple[float, float, int]] = deque()
         self.bpm: float | None = None
         self.brightness = 0.0
         self.onset_density = 0.0
@@ -125,17 +134,23 @@ class BeatAnalyzer:
         bass = float(np.sqrt(np.mean(bass_band * bass_band))) if bass_band.size else 0.0
         onset = max(0.0, bass - self.previous_bass)
         now = self.sample_count / self.sample_rate
+        if rms >= 0.0035:
+            self.last_signal_time = now
+        elif self.last_signal_time is not None and now - self.last_signal_time > 3.0:
+            self.bpm = None
+            self.beats.clear()
+            self.onset_times.clear()
+            self.onset_density = 0.0
+
         bass_threshold = max(0.0006, float(np.mean(self.flux_history)) * 1.75 if self.flux_history else 0.0006)
         if onset > bass_threshold and bass > 0.0015 and now - self.last_beat > 0.26:
             self.last_beat = now
             self.beats.append(now)
             if len(self.beats) >= 4:
                 intervals = np.diff(np.asarray(self.beats))
-                intervals = intervals[(intervals > 0.29) & (intervals < 1.5)]
+                intervals = intervals[(intervals > 0.28) & (intervals < 3.0)]
                 if intervals.size >= 3:
                     estimate = 60.0 / float(np.median(intervals))
-                    while estimate < 65:
-                        estimate *= 2
                     while estimate > 180:
                         estimate /= 2
                     self.bpm = estimate
@@ -171,11 +186,13 @@ class BeatAnalyzer:
         self.previous_spectrum = spectrum
         self.previous_bass = bass
         self.sample_count += audio.size
-        energy_sample = max(0.0, min(1.0, (20 * math.log10(max(rms, 1e-6)) + 48) / 36))
-        self.energy_history.append((now, energy_sample))
-        while self.energy_history and now - self.energy_history[0][0] > 1.2:
+        self.energy_history.append((now, float(np.mean(audio * audio)), audio.size))
+        while self.energy_history and now - self.energy_history[0][0] > 1.0:
             self.energy_history.popleft()
-        energy = sum(value for _timestamp, value in self.energy_history) / len(self.energy_history)
+        window_samples = sum(sample_count for _timestamp, _power, sample_count in self.energy_history)
+        window_power = sum(power * sample_count for _timestamp, power, sample_count in self.energy_history) / max(window_samples, 1)
+        smoothed_rms = math.sqrt(window_power)
+        energy = max(0.0, min(1.0, (20 * math.log10(max(smoothed_rms, 1e-6)) + 48) / 36))
         mood = self.mood_for(self.bpm, energy, self.brightness, self.onset_density)
         return self.bpm, energy, mood
 
@@ -687,6 +704,14 @@ class DesktopCompanion:
         art_controls.pack(fill="x", pady=(0, 14))
         tb.Button(art_controls, text="Add / change artwork…", bootstyle="secondary-outline", command=self.choose_character_art).pack(side="left", fill="x", expand=True)
         tb.Button(art_controls, text="Use preset", bootstyle="secondary-outline", command=self.remove_character_art).pack(side="left", padx=(6, 0))
+        self.custom_animation_button = tb.Button(
+            panel,
+            text="Custom animations…",
+            bootstyle="success-outline",
+            command=self.open_custom_animation_editor,
+            state="normal" if self.character_var.get() == "Custom" else "disabled",
+        )
+        self.custom_animation_button.pack(fill="x", pady=(0, 14))
 
         tb.Label(panel, text="BEHAVIOR", font=("Segoe UI", 8, "bold"), foreground=MUTED).pack(anchor="w")
         self.behavior_picker = tb.Combobox(panel, textvariable=self.behavior_var, values=("Follow the beat", "Stay still"), state="readonly")
@@ -722,6 +747,108 @@ class DesktopCompanion:
         tb.Separator(panel).pack(fill="x", pady=(0, 12))
         tb.Button(panel, text="Reset settings", bootstyle="secondary-outline", command=self.reset_settings).pack(anchor="e")
 
+    def open_custom_animation_editor(self) -> None:
+        if self.character_var.get() != "Custom":
+            return
+        if getattr(self, "custom_animation_window", None) is not None:
+            try:
+                if self.custom_animation_window.winfo_exists():
+                    self.custom_animation_window.deiconify()
+                    self.custom_animation_window.lift()
+                    return
+            except tk.TclError:
+                pass
+
+        window = tb.Toplevel(self.settings_window)
+        self.custom_animation_window = window
+        window.title("Custom Character Animations")
+        window.geometry("560x640")
+        window.minsize(520, 520)
+        window.transient(self.settings_window)
+        window.protocol("WM_DELETE_WINDOW", window.withdraw)
+
+        panel = tb.Frame(window, padding=18)
+        panel.pack(fill="both", expand=True)
+        tb.Label(panel, text="Custom character animations", style="Section.TLabel").pack(anchor="w")
+        tb.Label(
+            panel,
+            text="Choose a picture or GIF for each state. Missing files fall back to the standing image.",
+            style="Muted.TLabel",
+            wraplength=510,
+        ).pack(anchor="w", pady=(4, 12))
+
+        rows = tb.Frame(panel)
+        rows.pack(fill="both", expand=True)
+        self.custom_animation_labels: dict[str, tb.Label] = {}
+        row = 0
+        for section, states in CUSTOM_ANIMATION_SECTIONS:
+            tb.Label(rows, text=section.upper(), font=("Segoe UI", 8, "bold"), foreground=MUTED).grid(
+                row=row,
+                column=0,
+                columnspan=4,
+                sticky="w",
+                pady=(8, 4),
+            )
+            row += 1
+            for state, label in states:
+                tb.Label(rows, text=label, width=18).grid(row=row, column=0, sticky="w", padx=(0, 8), pady=3)
+                path_label = tb.Label(rows, text="Not set", style="Muted.TLabel", width=24, anchor="w")
+                path_label.grid(row=row, column=1, sticky="ew", padx=(0, 8), pady=3)
+                self.custom_animation_labels[state] = path_label
+                tb.Button(
+                    rows,
+                    text="Choose…",
+                    bootstyle="secondary-outline",
+                    command=lambda animation_state=state: self.choose_custom_animation(animation_state),
+                ).grid(row=row, column=2, sticky="e", pady=3)
+                tb.Button(
+                    rows,
+                    text="×",
+                    width=3,
+                    bootstyle="secondary-outline",
+                    command=lambda animation_state=state: self.clear_custom_animation(animation_state),
+                ).grid(row=row, column=3, sticky="e", padx=(4, 0), pady=3)
+                row += 1
+        rows.columnconfigure(1, weight=1)
+        self._refresh_custom_animation_labels()
+
+    def _refresh_custom_animation_labels(self) -> None:
+        animations = self.settings.get("custom_animations", {})
+        if not isinstance(animations, dict):
+            animations = {}
+        for state, label in getattr(self, "custom_animation_labels", {}).items():
+            path = animations.get(state)
+            label.configure(text=Path(path).name if path else "Not set")
+
+    def choose_custom_animation(self, state: str) -> None:
+        path = filedialog.askopenfilename(
+            parent=self.custom_animation_window,
+            title=f"Choose {dict(CUSTOM_ANIMATION_STATES)[state]} artwork",
+            filetypes=(("Pictures and GIFs", "*.png *.gif *.jpg *.jpeg *.webp"), ("All files", "*.*")),
+        )
+        if not path:
+            return
+        animations = self.settings.setdefault("custom_animations", {})
+        if not isinstance(animations, dict):
+            animations = {}
+            self.settings["custom_animations"] = animations
+        animations[state] = path
+        self._save_settings()
+        self._refresh_custom_animation_labels()
+        if self.character_var.get() == "Custom":
+            self.loaded_art_path = None
+            self._load_character_art()
+
+    def clear_custom_animation(self, state: str) -> None:
+        animations = self.settings.get("custom_animations", {})
+        if isinstance(animations, dict):
+            animations.pop(state, None)
+        self._save_settings()
+        self._refresh_custom_animation_labels()
+        if self.character_var.get() == "Custom":
+            self.loaded_art_path = None
+            self._load_character_art()
+
     def toggle_settings_window(self) -> None:
         if self.settings_window.state() == "normal":
             self.hide_settings_window()
@@ -740,6 +867,8 @@ class DesktopCompanion:
     def hide_settings_window(self) -> None:
         self._save_settings()
         self.settings_window.withdraw()
+        if getattr(self, "custom_animation_window", None) is not None:
+            self.custom_animation_window.withdraw()
 
     def _refresh_audio_devices(self) -> None:
         self.input_devices: dict[str, int] = {}
@@ -880,6 +1009,10 @@ class DesktopCompanion:
         self._load_character_art()
 
     def change_character(self, _event: tk.Event | None = None) -> None:
+        is_custom = self.character_var.get() == "Custom"
+        self.custom_animation_button.configure(state="normal" if is_custom else "disabled")
+        if not is_custom and getattr(self, "custom_animation_window", None) is not None:
+            self.custom_animation_window.withdraw()
         self._save_settings()
         self._load_character_art()
 
@@ -912,11 +1045,30 @@ class DesktopCompanion:
 
     def _art_path_for_current_state(self) -> Path | None:
         character = self.character_var.get()
-        music_active = self.audio.active or self.demo_active
+        music_active = self._music_is_detected()
         candidates: list[Path] = []
+        if character == "Custom":
+            if music_active and self.current_mood:
+                if self.motion_state == "resting":
+                    custom_states = (f"{self.current_mood}-idle", "idle", self.current_mood, "walking", "standing")
+                else:
+                    custom_states = (self.current_mood, "walking", "standing", "idle")
+            elif self.motion_state == "resting":
+                custom_states = ("idle", "standing", "walking")
+            else:
+                custom_states = ("walking", "standing", "idle")
+
+            custom_animations = self.settings.get("custom_animations", {})
+            if isinstance(custom_animations, dict):
+                for state in custom_states:
+                    custom_path = custom_animations.get(state)
+                    if custom_path and Path(custom_path).is_file():
+                        return Path(custom_path)
+
         if music_active and self.current_mood:
             if self.motion_state == "resting":
                 candidates.append(CHARACTER_ART_DIR / f"{character}-{self.current_mood}-idle.gif")
+                candidates.append(CHARACTER_ART_DIR / f"{character}-idle.gif")
             candidates.append(CHARACTER_ART_DIR / f"{character}-{self.current_mood}.gif")
         elif self.motion_state == "resting":
             candidates.append(CHARACTER_ART_DIR / f"{character}-idle.gif")
@@ -934,6 +1086,9 @@ class DesktopCompanion:
 
         preset_path = CHARACTER_ART_DIR / f"{character}.webp"
         return preset_path if preset_path.is_file() else None
+
+    def _music_is_detected(self) -> bool:
+        return self.demo_active or (self.audio.active and self.current_mood is not None)
 
     def _show_frame(self) -> None:
         if not self.gif_frames:
@@ -977,7 +1132,7 @@ class DesktopCompanion:
             self.mood_var.set(MOOD_TEXT[mood])
         else:
             self.mood_var.set("Waiting for a song")
-        if mood_changed:
+        if mood_changed or mood is None:
             self._load_character_art()
 
     def _reset_readings(self) -> None:
@@ -1057,10 +1212,12 @@ class DesktopCompanion:
                 self.audio.stop()
                 self.run_button.configure(text="▶  Start listening", bootstyle="success")
                 self.status_var.set("Track finished")
+                self._reset_readings()
             elif kind == "error":
                 self.audio.stop()
                 self.run_button.configure(text="▶  Start listening", bootstyle="success")
                 self.status_var.set("Audio source stopped")
+                self._reset_readings()
                 messagebox.showerror(APP_NAME, str(value))
         if latest_analysis:
             bpm, energy, mood = latest_analysis
@@ -1068,9 +1225,11 @@ class DesktopCompanion:
             if bpm is not None:
                 self.current_bpm = bpm
                 self.bpm_var.set(str(round(bpm)))
+            else:
+                self.current_bpm = None
+                self.bpm_var.set("--")
             self.energy_var.set(round(energy * 100))
-            if mood:
-                self._set_mood(mood)
+            self._set_mood(mood)
             self.status_dot.configure(foreground="#31a880")
         self.root.after(80, self._poll_audio)
 
@@ -1144,15 +1303,15 @@ class DesktopCompanion:
         self._show_frame()
 
     def _start_walking(self, now: float, music_active: bool) -> None:
-        self._choose_heading()
         self.motion_state = "walking"
         self.motion_state_until = now + self._walk_duration(music_active)
         self.next_turn_at = now + self._next_turn_delay(music_active)
-        self._show_frame()
+        self._choose_heading()
+        self._load_character_art()
 
     def _start_resting(self, now: float, music_active: bool) -> None:
         self.motion_state = "resting"
-        self.motion_state_until = now + (random.uniform(0.8, 2.2) if music_active else random.uniform(1.5, 3.5))
+        self.motion_state_until = now + (random.uniform(1.2, 2.8) if music_active else random.uniform(2.0, 4.5))
         self._load_character_art()
 
     def _animate(self) -> None:
@@ -1163,15 +1322,14 @@ class DesktopCompanion:
             self.root.after(80, self._animate)
             return
         still = self.behavior_var.get() == "Stay still"
-        music_active = self.audio.active or self.demo_active
+        music_active = self._music_is_detected()
         if music_active != self.motion_music_active:
             self.motion_music_active = music_active
             self._start_walking(now, music_active)
-            self._load_character_art()
 
         if not still and now >= self.motion_state_until:
             if self.motion_state == "walking":
-                if random.random() < 0.55:
+                if random.random() < 0.35:
                     self._start_walking(now, music_active)
                 else:
                     self._start_resting(now, music_active)
@@ -1286,6 +1444,10 @@ class DesktopCompanion:
         self.outline_enabled.set(False)
         self.outline_color = "#ffffff"
         self.outline_swatch.configure(background=self.outline_color, activebackground=self.outline_color)
+        self.custom_animation_button.configure(state="disabled")
+        if getattr(self, "custom_animation_window", None) is not None:
+            self.custom_animation_window.withdraw()
+            self._refresh_custom_animation_labels()
         self.audio_path = ""
         self.file_name.configure(text="MP3, WAV, FLAC and more")
         self._save_settings()
